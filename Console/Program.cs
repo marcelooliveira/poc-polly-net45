@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using Newtonsoft.Json;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -9,8 +10,8 @@ namespace Console
     {
         static async Task Main(string[] args)
         {
-            //new RestSharpExample().Execute();
-            await new HttpClientExample().ExecuteAsync();
+            await new RestSharpExample().ExecuteAsync();
+            //await new HttpClientExample().ExecuteAsync();
 
             System.Console.WriteLine("Tecle algo...");
             System.Console.ReadLine();

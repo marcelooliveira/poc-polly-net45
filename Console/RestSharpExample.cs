@@ -1,66 +1,228 @@
 ﻿using Newtonsoft.Json;
-using Polly;
 using RestSharp;
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.Net;
+using System.Threading.Tasks;
 
 namespace Console
 {
     public class RestSharpExample
     {
-        private static int _maxRetryAttempts = 5;
-        private static TimeSpan _pauseBetweenFailures = TimeSpan.FromSeconds(10);
-
-        public void Execute()
+        public async Task ExecuteAsync()
         {
-            var client = new RestClient("http://localhost:5102");
-            var request = new RestRequest("WeatherForecast");
-            var response = RestSharpResponseWithPolicy(client, request, (log) => {
-                System.Console.WriteLine(log);
-            });
-
-            if (response.StatusCode == System.Net.HttpStatusCode.OK)
+            List<ExemploResilience> exemplos = new List<ExemploResilience>
             {
-                var json = response.Content;
+                new ExemploResilience(
+                    title: "Sem resiliência + execução rápida",
+                    comment: "Execução normal, sem resiliência. A resposta é rápida, como num request HTTP normal.",
+                    apiStatusCode: 200,
+                    apiDelaySecs: 0,
+                    exampleFunc: () =>
+                                ILang.Util.Resilience.RestSharpResilience
+                                    .Build()
+                ),
+                new ExemploResilience(
+                    title: "Sem resiliência + HTTP 500",
+                    comment: "Execução normal, sem resiliência. Mas o servidor retorna HTTP 500 Internal Server Error.",
+                    apiStatusCode: 500,
+                    apiDelaySecs: 0,
+                    exampleFunc: () =>
+                                ILang.Util.Resilience.RestSharpResilience
+                                    .Build()
+                ),
+                new ExemploResilience(
+                    title: "WithWaitAndRetry + Log + HTTP 500",
+                    comment: "Espera e Retentativa, com 3 tentativas (default)",
+                    apiStatusCode: 500,
+                    apiDelaySecs: 0,
+                    exampleFunc: () =>
+                                ILang.Util.Resilience.RestSharpResilience
+                                    .Build()
+                                    .WithWaitAndRetry()
+                                    .WithLog(log => System.Console.WriteLine(log))
+                ),
+                new ExemploResilience(
+                    title: "WithWaitAndRetry + HTTP 500",
+                    comment: "Espera e Retentativa, com 2 tentativas",
+                    apiStatusCode: 500,
+                    apiDelaySecs: 0,
+                    exampleFunc: () =>
+                                ILang.Util.Resilience.RestSharpResilience
+                                    .Build()
+                                    .WithWaitAndRetry(2)
+                                    .WithLog(log => System.Console.WriteLine(log))
+                ),
+                new ExemploResilience(
+                    title: "WithWaitAndRetry + HTTP 500",
+                    comment: "Espera e Retentativa, com 3 tentativas, com sucesso na última",
+                    apiStatusCode: 500,
+                    apiDelaySecs: 0,
+                    failsBeforeSuccess: 2,
+                    exampleFunc: () =>
+                                ILang.Util.Resilience.RestSharpResilience
+                                    .Build()
+                                    .WithWaitAndRetry(3)
+                                    .WithLog(log => System.Console.WriteLine(log))
+                ),
+                new ExemploResilience(
+                    title: "Fallback + HTTP 500",
+                    comment: "Servidor gera HTTP 500, mas o Polly gera resposta fallback custom",
+                    apiStatusCode: 500,
+                    apiDelaySecs: 0,
+                    exampleFunc: () =>
+                                ILang.Util.Resilience.RestSharpResilience
+                                    .Build()
+                                    .WithFallback(new RestResponse { StatusCode = HttpStatusCode.OK, Content = "Esta é uma resposta de fallback!" })
+                ),
+                new ExemploResilience(
+                    title: "WaitAndRetry + CircuitBreaker + Log + HTTP 500",
+                    comment: "Servidor gera HTTP 500, com 10 tentativas, mas o circuit breaker \r\nimpõe uma penalidade de 30 segundos após 2 tentativas falhas",
+                    apiStatusCode: 500,
+                    apiDelaySecs: 0,
+                    exampleFunc: () =>
+                                ILang.Util.Resilience.RestSharpResilience
+                                    .Build()
+                                    .WithWaitAndRetry(10)
+                                    .WithCircuitBreaker(2)
+                                    .WithLog(log => System.Console.WriteLine(log))
+                ),
+                new ExemploResilience(
+                    title: "StatusCodes + WaitAndRetry + Log + HTTP 500",
+                    comment: "Servidor gera HTTP 500, com 10 tentativas, mas \r\nessa política só vale para o erro HTTP 404",
+                    apiStatusCode: 500,
+                    apiDelaySecs: 0,
+                    exampleFunc: () =>
+                                ILang.Util.Resilience.RestSharpResilience
+                                    .Build()
+                                    .WithStatusCodes(c => c == (int)HttpStatusCode.NotFound)
+                                    .WithWaitAndRetry(10)
+                                    .WithLog(log => System.Console.WriteLine(log))
+                ),
+                new ExemploResilience(
+                    title: "StatusCodes + WaitAndRetry + Log + HTTP 400",
+                    comment: "Customização do filtro de status codes",
+                    apiStatusCode: 400,
+                    apiDelaySecs: 0,
+                    exampleFunc: () =>
+                                ILang.Util.Resilience.RestSharpResilience
+                                    .Build()
+                                    .WithStatusCodes(c =>
+                                        "400, 401, 402".Contains(c.ToString())
+                                            || c > 500)
+                                    .WithWaitAndRetry(1)
+                                    .WithLog(log => System.Console.WriteLine(log))
+                ),
+                new ExemploResilience(
+                    title: "Sem resiliência + execução lenta",
+                    comment: "Execução normal, sem resiliência. Mas o servidor demora 10 segundos pra responder.",
+                    apiStatusCode: 200,
+                    apiDelaySecs: 10,
+                    exampleFunc: () =>
+                                ILang.Util.Resilience.RestSharpResilience
+                                    .Build()
+                ),
+                new ExemploResilience(
+                    title: "Timeout padrão + execução lenta",
+                    comment: "Timeout de 30s (default). Mas o servidor demora 10 segundos pra responder.",
+                    apiStatusCode: 200,
+                    apiDelaySecs: 10,
+                    exampleFunc: () =>
+                                ILang.Util.Resilience.RestSharpResilience
+                                    .Build()
+                                    .WithTimeout()
+                ),
+                new ExemploResilience(
+                    title: "Timeout 5s + execução lenta",
+                    comment: "Timeout de 5s. Mas o servidor demora 10 segundos pra responder.",
+                    apiStatusCode: 200,
+                    apiDelaySecs: 10,
+                    exampleFunc: () =>
+                                ILang.Util.Resilience.RestSharpResilience
+                                    .Build()
+                                    .WithTimeout(5)
+                )
+            };
 
-                PrintWeatherForecast(json);
+            foreach (var exemplo in exemplos)
+            {
+                await ExecutaExemplo(exemplo);
+            }
+
+        }
+
+        private async Task ExecutaExemplo(ExemploResilience exemplo)
+        {
+            System.Console.WriteLine(new string('=', 100));
+            System.Console.WriteLine(exemplo.Title);
+            System.Console.WriteLine(new string('-', 100));
+            System.Console.WriteLine(exemplo.Comments);
+            System.Console.WriteLine(new string('=', 100));
+            try
+            {
+                var resilience = exemplo.Func();
+                string baseUrl = "http://localhost:5102";
+                string resource = $"WeatherForecast/{exemplo.ApiStatusCode}/{exemplo.ApiDelaySecs}";
+
+                var restClient = new RestClient(baseUrl);
+
+                var resetResponse = 
+                    await restClient.ExecuteTaskAsync(new RestRequest($"WeatherForecast/Reset/{exemplo.FailsBeforeSuccess}", Method.POST));
+
+                var request = new RestRequest(resource);
+
+                IRestResponse response =
+                    await resilience.ExecuteAsync(resource, async (requestKey) =>
+                        await restClient.ExecuteTaskAsync(request));
+
+                if (response.StatusCode != System.Net.HttpStatusCode.OK)
+                {
+                    System.Console.WriteLine($"response.StatusCode = {response.StatusCode}");
+                    return;
+                }
+
+                System.Console.WriteLine($"response.StatusCode: {response.StatusCode}");
+                System.Console.WriteLine($"response.Content: {response.Content}");
+            }
+            catch (System.Exception ex)
+            {
+                System.Console.WriteLine(ex);
+                Debug.WriteLine(ex);
+            }
+            finally
+            {
+                System.Console.WriteLine();
+                System.Console.WriteLine();
+                System.Console.WriteLine();
             }
         }
+    }
 
-        private static void PrintWeatherForecast(string json)
+    internal class ExemploResilience
+    {
+        string title;
+        string comments;
+        int apiStatusCode;
+        int apiDelaySecs;
+        int failsBeforeSuccess;
+        Func<ILang.Util.Resilience.IPolicyBuilder<IRestResponse>> func;
+
+        public ExemploResilience(string title, string comment, int apiStatusCode, int apiDelaySecs, Func<ILang.Util.Resilience.IPolicyBuilder<IRestResponse>> exampleFunc, int failsBeforeSuccess = 10)
         {
-            var array = JsonConvert.DeserializeObject<WeatherForecast[]>(json);
-
-            foreach (var wf in array)
-            {
-                System.Console.WriteLine($"Date: {wf.Date}");
-                System.Console.WriteLine($"TemperatureC: {wf.TemperatureC}");
-                System.Console.WriteLine($"TemperatureF: {wf.TemperatureF}");
-                System.Console.WriteLine($"Summary: {wf.Summary}");
-            }
+            this.title = title;
+            this.comments = comment;
+            this.apiStatusCode = apiStatusCode;
+            this.apiDelaySecs = apiDelaySecs;
+            this.failsBeforeSuccess = failsBeforeSuccess;
+            this.func = exampleFunc;
         }
 
-        private IRestResponse RestSharpResponseWithPolicy(RestClient restClient, RestRequest restRequest, Action<string> logFunction)
-        {
-            var retryPolicy = Policy
-                .HandleResult<IRestResponse>(x => x.StatusCode != HttpStatusCode.OK)
-                .WaitAndRetry(_maxRetryAttempts, x => _pauseBetweenFailures, (iRestResponse, timeSpan, retryCount, context) =>
-                {
-                    logFunction($"The request failed. HttpStatusCode={iRestResponse.Result.StatusCode}. Waiting {timeSpan} seconds before retry. Number attempt {retryCount}. Uri={iRestResponse.Result.ResponseUri}; RequestResponse={iRestResponse.Result.Content}");
-                });
-
-            var circuitBreakerPolicy = Policy
-                .HandleResult<IRestResponse>(x => x.StatusCode == HttpStatusCode.ServiceUnavailable)
-                .CircuitBreaker(1, TimeSpan.FromSeconds(60), onBreak: (iRestResponse, timespan, context) =>
-                {
-                    logFunction($"Circuit went into a fault state. Reason: {iRestResponse.Result.Content}");
-                },
-                onReset: (context) =>
-                {
-                    logFunction($"Circuit left the fault state.");
-                });
-
-            return retryPolicy.Wrap(circuitBreakerPolicy).Execute(() => restClient.Execute(restRequest));
-        }
+        public string Title { get => title; set => title = value; }
+        public string Comments { get => comments; set => comments = value; }
+        public int ApiStatusCode { get => apiStatusCode; set => apiStatusCode = value; }
+        public int ApiDelaySecs { get => apiDelaySecs; set => apiDelaySecs = value; }
+        public int FailsBeforeSuccess { get => failsBeforeSuccess; set => failsBeforeSuccess = value; }
+        public Func<ILang.Util.Resilience.IPolicyBuilder<IRestResponse>> Func { get => func; set => func = value; }
     }
 }
