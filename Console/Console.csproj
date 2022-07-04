@@ -63,9 +63,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="..\..\..\..\..\..\GitUlife\ulife-salavirtual\ILang.util\Resilience\HttpResilience.cs">
-      <Link>HttpResilience.cs</Link>
-    </Compile>
+    <Compile Include="HttpResilience.cs" />
     <Compile Include="ILogService.cs" />
     <Compile Include="Logger.cs" />
     <Compile Include="Program.cs" />
