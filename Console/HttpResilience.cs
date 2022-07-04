@@ -5,6 +5,7 @@ using Polly.Retry;
 using Polly.Timeout;
 using RestSharp;
 using System;
+using System.Net.Http;
 using System.Threading.Tasks;
 
 namespace ILang.Util.Resilience
@@ -225,6 +226,40 @@ namespace ILang.Util.Resilience
         }
 
         protected override Action<DelegateResult<IRestResponse>, TimeSpan, int, Context> GetOnRetry()
+        {
+            return (response, timeSpan, retryCount, context) =>
+                logFunction($"The request failed. HttpStatusCode={response.Result.StatusCode}. Waiting {timeSpan} seconds before retry. Number attempt {retryCount}.  RequestKey: {requestKey}");
+        }
+    }
+
+    
+    public interface IHttpClientResilience : IPolicyBuilder<HttpResponseMessage>
+    {
+
+    }
+
+    public class HttpClientResilience : PolicyBuilder<HttpResponseMessage>, IHttpClientResilience
+    {
+        private HttpClientResilience()
+        {
+
+        }
+
+        /// <summary>
+        /// Build the container for the HttpClient resilience policy.
+        /// </summary>
+        /// <returns></returns>
+        public static HttpClientResilience Build()
+        {
+            return new HttpClientResilience();
+        }
+
+        protected override Func<HttpResponseMessage, bool> GetResultPredicate()
+        {
+            return r => statusCodeFilter((int)r.StatusCode);
+        }
+
+        protected override Action<DelegateResult<HttpResponseMessage>, TimeSpan, int, Context> GetOnRetry()
         {
             return (response, timeSpan, retryCount, context) =>
                 logFunction($"The request failed. HttpStatusCode={response.Result.StatusCode}. Waiting {timeSpan} seconds before retry. Number attempt {retryCount}.  RequestKey: {requestKey}");

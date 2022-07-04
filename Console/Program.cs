@@ -10,8 +10,8 @@ namespace Console
     {
         static async Task Main(string[] args)
         {
-            await new RestSharpExample().ExecuteAsync();
-            //await new HttpClientExample().ExecuteAsync();
+            //await new RestSharpExample().ExecuteAsync();
+            await new HttpClientExample().ExecuteAsync();
 
             System.Console.WriteLine("Tecle algo...");
             System.Console.ReadLine();

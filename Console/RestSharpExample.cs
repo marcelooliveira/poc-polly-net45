@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Net;
+using System.Net.Http;
 using System.Threading.Tasks;
 
 namespace Console
@@ -40,7 +41,7 @@ namespace Console
                     exampleFunc: () =>
                                 ILang.Util.Resilience.RestSharpResilience
                                     .Build()
-                                    .WithWaitAndRetry(maxRetryAttempts: 7)
+                                    .WithWaitAndRetry()
                                     .WithLog(log => System.Console.WriteLine(log))
                 ),
                 new ExemploResilience(
@@ -109,8 +110,11 @@ namespace Console
                                 ILang.Util.Resilience.RestSharpResilience
                                     .Build()
                                     .WithStatusCodes(c =>
-                                        "400, 401, 402".Contains(c.ToString())
-                                            || c > 500)
+                                        new List<int> {
+                                          (int)HttpStatusCode.BadRequest
+                                        , (int)HttpStatusCode.MethodNotAllowed
+                                        , (int)HttpStatusCode.Forbidden
+                                        }.Contains(c) || c > 500)
                                     .WithWaitAndRetry(1)
                                     .WithLog(log => System.Console.WriteLine(log))
                 ),
@@ -167,7 +171,7 @@ namespace Console
 
                 var restClient = new RestClient(baseUrl);
 
-                var resetResponse = 
+                var resetResponse =
                     await restClient.ExecuteTaskAsync(new RestRequest($"WeatherForecast/Reset/{exemplo.FailsBeforeSuccess}", Method.POST));
 
                 var request = new RestRequest(resource);
@@ -197,32 +201,31 @@ namespace Console
                 System.Console.WriteLine();
             }
         }
-    }
-
-    internal class ExemploResilience
-    {
-        string title;
-        string comments;
-        int apiStatusCode;
-        int apiDelaySecs;
-        int failsBeforeSuccess;
-        Func<ILang.Util.Resilience.IPolicyBuilder<IRestResponse>> func;
-
-        public ExemploResilience(string title, string comment, int apiStatusCode, int apiDelaySecs, Func<ILang.Util.Resilience.IPolicyBuilder<IRestResponse>> exampleFunc, int failsBeforeSuccess = 10)
+        class ExemploResilience
         {
-            this.title = title;
-            this.comments = comment;
-            this.apiStatusCode = apiStatusCode;
-            this.apiDelaySecs = apiDelaySecs;
-            this.failsBeforeSuccess = failsBeforeSuccess;
-            this.func = exampleFunc;
-        }
+            string title;
+            string comments;
+            int apiStatusCode;
+            int apiDelaySecs;
+            int failsBeforeSuccess;
+            Func<ILang.Util.Resilience.IPolicyBuilder<IRestResponse>> func;
 
-        public string Title { get => title; set => title = value; }
-        public string Comments { get => comments; set => comments = value; }
-        public int ApiStatusCode { get => apiStatusCode; set => apiStatusCode = value; }
-        public int ApiDelaySecs { get => apiDelaySecs; set => apiDelaySecs = value; }
-        public int FailsBeforeSuccess { get => failsBeforeSuccess; set => failsBeforeSuccess = value; }
-        public Func<ILang.Util.Resilience.IPolicyBuilder<IRestResponse>> Func { get => func; set => func = value; }
+            public ExemploResilience(string title, string comment, int apiStatusCode, int apiDelaySecs, Func<ILang.Util.Resilience.IPolicyBuilder<IRestResponse>> exampleFunc, int failsBeforeSuccess = 10)
+            {
+                this.title = title;
+                this.comments = comment;
+                this.apiStatusCode = apiStatusCode;
+                this.apiDelaySecs = apiDelaySecs;
+                this.failsBeforeSuccess = failsBeforeSuccess;
+                this.func = exampleFunc;
+            }
+
+            public string Title { get => title; set => title = value; }
+            public string Comments { get => comments; set => comments = value; }
+            public int ApiStatusCode { get => apiStatusCode; set => apiStatusCode = value; }
+            public int ApiDelaySecs { get => apiDelaySecs; set => apiDelaySecs = value; }
+            public int FailsBeforeSuccess { get => failsBeforeSuccess; set => failsBeforeSuccess = value; }
+            public Func<ILang.Util.Resilience.IPolicyBuilder<IRestResponse>> Func { get => func; set => func = value; }
+        }
     }
 }
