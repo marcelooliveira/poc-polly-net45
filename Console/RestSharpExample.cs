@@ -40,7 +40,7 @@ namespace Console
                     exampleFunc: () =>
                                 ILang.Util.Resilience.RestSharpResilience
                                     .Build()
-                                    .WithWaitAndRetry()
+                                    .WithWaitAndRetry(maxRetryAttempts: 7)
                                     .WithLog(log => System.Console.WriteLine(log))
                 ),
                 new ExemploResilience(
@@ -85,7 +85,7 @@ namespace Console
                                 ILang.Util.Resilience.RestSharpResilience
                                     .Build()
                                     .WithWaitAndRetry(10)
-                                    .WithCircuitBreaker(2)
+                                    .WithCircuitBreaker()
                                     .WithLog(log => System.Console.WriteLine(log))
                 ),
                 new ExemploResilience(
