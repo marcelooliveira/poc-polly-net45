@@ -7,7 +7,7 @@ using RestSharp;
 using System;
 using System.Threading.Tasks;
 
-namespace Console
+namespace ILang.Util.Resilience
 {
     public interface IPolicyBuilder<T>
     {
